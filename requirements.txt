@@ -1,9 +1,9 @@
 streamlit
-torch==2.7.1
+torch==2.7.1+cpu
+-f https://download.pytorch.org/whl/torch_stable.html
 openai-whisper
 deep-translator
-opencv-python
+opencv-python-headless
 srt
 numpy
 pillow
-ffmpeg-python
