@@ -24,6 +24,7 @@ if 'SUPPORTED_LANGS' not in st.session_state:
 
 os.makedirs('output', exist_ok=True)
 
+
 def signup():
     st.title("📝 Sign Up")
     username = st.text_input("Create Username")
@@ -37,7 +38,6 @@ def signup():
             st.success("Account created successfully! Please log in.")
             st.session_state.page = 'login'
             st.rerun()
-
 
     if st.button("Go to Login"):
         st.session_state.page = 'login'
@@ -55,7 +55,6 @@ def login():
             st.session_state.username = username
             st.success("Logged in successfully!")
             st.rerun()
-
         else:
             st.error("Invalid username or password")
 
@@ -132,9 +131,10 @@ def main_page():
                     st.download_button("Download Subtitle (.srt)", file, srt_filename)
 
                 with open(video_output_path, "rb") as file:
-                    st.download_button("Download Subtitled Video", file, video_filename)
+                    st.download_button("Download Subtitled Video (.mp4)", file, video_filename)
         else:
             st.error("Please upload a file first.")
+
 
 def main():
     if not st.session_state.authenticated:
@@ -144,6 +144,7 @@ def main():
             signup()
     else:
         main_page()
+
 
 if __name__ == "__main__":
     main()
