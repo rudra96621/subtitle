@@ -1,10 +1,9 @@
-flask
-flask_cors
-whisper
-torch
+streamlit
+torch==2.7.1
+openai-whisper
 deep-translator
 opencv-python
 srt
 numpy
 pillow
-gunicorn
+ffmpeg-python
