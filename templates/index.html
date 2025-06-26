@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subtitle Generator - Landing Page</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #fff;
+        }
+
+        .site-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 50px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .site-header .logo {
+            font-size: 24px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+        }
+
+        .site-header .logo img {
+            width: 30px;
+            margin-right: 10px;
+        }
+
+        .site-header nav a {
+            margin-left: 20px;
+            text-decoration: none;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .site-header nav a:hover {
+            color: #4CAF50;
+        }
+
+        .landing {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: calc(100vh - 80px);
+            padding: 50px;
+            margin-top: -80px;
+        }
+
+        .landing-left {
+            flex: 1;
+            padding: 20px;
+        }
+
+        .landing-left h1 {
+            font-size: 3em;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .landing-left p {
+            font-size: 1.2em;
+            margin-bottom: 30px;
+            color: #555;
+        }
+
+        .landing-left button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: background-color 0.3s ease;
+        }
+
+        .landing-left button:hover {
+            background-color: #45a049;
+        }
+
+        .landing-right {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .landing-right img {
+            max-width: 90%;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .features-section {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 30px;
+            padding: 50px 20px;
+            background-color: rgb(255, 253, 253);
+        }
+
+        .feature {
+            flex: 1 1 200px;
+            max-width: 300px;
+            text-align: center;
+        }
+
+        .feature img {
+            width: 50px;
+            margin-bottom: 15px;
+        }
+
+        .feature h3 {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+        }
+
+        .feature p {
+            color: #666;
+        }
+
+        .main-content {
+            display: none;
+            padding: 30px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="site-header">
+        <div class="logo">
+            <img src="/static/logo.jpg" alt="Logo">
+            Subtitle Generator
+        </div>
+        <nav>
+            <a href="/signup">Sign Up</a>
+            <a href="/login">Login</a>
+        </nav>
+    </header>
+
+    <!-- Landing Page -->
+    <div class="landing" id="landingPage">
+        <div class="landing-left">
+            <h1>ADD SUBTITLE TO YOUR VIDEOS IN<br> ANY LANGUAGE</h1>
+            <p>Generate accurate subtitles for your videos with our AI-powered subtitle generator.</p>
+            <button onclick="showMainPage()">Get Started</button>
+        </div>
+        <div class="landing-right">
+            <img src="/static/notes-from-meeting.webp" alt="Subtitle Generator Preview">
+        </div>
+    </div>
+
+    <!-- Features Section -->
+    <section class="features-section">
+        <div class="feature">
+            <img src="/static/possibilities.webp" alt="Icon">
+            <h3>Easy To Upload</h3>
+            <p>Capture your thoughts and ideas on the go, without worrying of the final output.</p>
+        </div>
+        <div class="feature">
+            <img src="/static/writing.webp" alt="Icon">
+            <h3>Transcribe In One Click</h3>
+            <p>Use our AI Edit feature to summarize and structure your notes.</p>
+        </div>
+        <div class="feature">
+            <img src="/static/check.webp" alt="Icon">
+            <h3>100% Accuracy</h3>
+            <p>Fix typos, translate, change the tone of voice, and add easily intros and conclusions.</p>
+        </div>
+        <div class="feature">
+            <img src="/static/centralize.webp" alt="Icon">
+            <h3>Translate In Any Language</h3>
+            <p>Write in your mother tongue: our AI Edit feature takes care of the translation.</p>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <div class="page-layout main-content" id="mainPage">
+
+        <!-- Header (Left Side) -->
+        
+
+        <!-- Main Generator (Right Side) -->
+       <div class="container">
+            <h1>Generate Subtitles</h1>
+
+            <input type="file" id="fileInput" accept=".mp4,.mp3,.wav,.m4a" />
+
+            <label>Spoken Language:</label>
+            <select id="spokenLang">
+                <option value="Auto">Auto Detect</option>
+            </select>
+
+            <label>Subtitle Language:</label>
+            <select id="targetLang"></select>
+
+            <button onclick="uploadFile()">Generate Subtitles</button>
+
+            <div id="progressContainer">
+                <div id="progressBar"></div>
+            </div>
+
+            <div id="result">
+                <h3>Transcribed Text</h3>
+                <textarea id="transcribedText" rows="10" readonly></textarea>
+
+                <h3>Translated Subtitles</h3>
+                <textarea id="translatedText" rows="10" readonly></textarea>
+
+                <div id="downloadSection" style="display:none;">
+                    <a id="srtDownload" onclick="checkLoginBeforeDownload('/signup')">Download Subtitle (.srt)</a><br>
+                    <a id="videoDownload" onclick="checkLoginBeforeDownload('/signup')">Download Subtitled Video</a>    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2025 Subtitle Generator. All rights reserved.</p>
+    </footer>
+    <script>
+            function showMainPage() {
+        document.getElementById('landingPage').style.display = 'none';
+        document.querySelector('.features-section').style.display = 'none';
+        document.getElementById('mainPage').style.display = 'flex';
+
+        // No need to use history or localStorage
+
+
+
+        // Push state to history to handle back button
+        history.pushState({ page: 'main' }, '', '');
+
+        // Save the state in localStorage to prevent landing page on refresh
+        localStorage.setItem('isMainPage', 'true');
+    }
+
+    function checkLoginBeforeDownload(signupUrl) {
+        window.location.href = signupUrl;
+    }
+
+    window.onload = function () {
+        // On page load, check if the user was on the main page
+
+    }
+
+    window.onpopstate = function (event) {
+        // Show landing page when user hits back button
+        document.getElementById('landingPage').style.display = 'flex';
+        document.querySelector('.features-section').style.display = 'flex';
+        document.getElementById('mainPage').style.display = 'none';
+
+        // Clear the state so that on refresh, landing page appears
+        localStorage.removeItem('isMainPage');
+    };
+
+    </script>
+
+    <script src="\static\script.js"></script>
+</body>
+
+</html>

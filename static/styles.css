@@ -1,0 +1,96 @@
+/* Page Flex Layout */
+.page-layout {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* Side Header */
+.side-header {
+    width: 250px;
+    background-color: #4CAF50;
+    color: white;
+    padding: 20px;
+    box-sizing: border-box;
+    margin-left:-7.8px;
+    margin-top:-10px;
+    
+}
+.header-container{
+    margin-left:-10px;
+}
+.header-container h2 {
+    margin: 0 0 20px 0;
+}
+
+.header-container nav a {
+    color: white;
+    text-decoration: none;
+    display: block;
+    margin: px 0;
+    font-weight: bold;
+}
+
+.header-container nav a:hover {
+    text-decoration: underline;
+}
+
+/* Main Content */
+.container {
+    flex: 1;
+    padding: 10px;
+    background-color: white;
+    margin: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Button Style */
+button {
+    background-color: #4CAF50;
+    color: white;
+    padding: 12px 20px;
+    margin-top: 10px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s ease;
+    display: block;
+    width: 100%;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+/* Progress Bar */
+#progressContainer {
+    width: 100%;
+    background-color: #ddd;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 20px 0;
+}
+
+#progressBar {
+    width: 0%;
+    height: 25px;
+    background-color: #4CAF50;
+    text-align: center;
+    line-height: 25px;
+    color: white;
+    border-radius: 10px 0 0 10px;
+    transition: width 0.5s ease;
+}
+
+/* Footer */
+footer {
+    background-color: #333;
+    color: white;
+    text-align: center;
+    padding: 0px 0;
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    margin-left:-10px;
+}
