@@ -49,8 +49,15 @@ def render_subtitles_on_video(video_path, segments, output_path, font_path):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
+    if not cap.isOpened():
+        raise Exception(f"Cannot open video file: {video_path}")
+
     temp_no_audio = tempfile.mktemp(suffix=".mp4")
-    out = cv2.VideoWriter(temp_no_audio, cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height))
+    # ⚙️ Changed codec from 'mp4v' to 'avc1' for Streamlit compatibility
+    out = cv2.VideoWriter(temp_no_audio, cv2.VideoWriter_fourcc(*'avc1'), fps, (width, height))
+
+    if not out.isOpened():
+        raise Exception("Error initializing VideoWriter. Check codec and file paths.")
 
     font = ImageFont.truetype(font_path, 32)
     padding = 30
@@ -100,8 +107,6 @@ def render_subtitles_on_video(video_path, segments, output_path, font_path):
 
     cap.release()
     out.release()
-
-    # ⚡️ Removed: cv2.destroyAllWindows() (not supported on headless servers)
 
     subprocess.run([
         "ffmpeg", "-y", "-i", temp_no_audio, "-i", video_path,
