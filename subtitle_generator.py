@@ -100,7 +100,8 @@ def render_subtitles_on_video(video_path, segments, output_path, font_path):
 
     cap.release()
     out.release()
-    cv2.destroyAllWindows()
+
+    # ⚡️ Removed: cv2.destroyAllWindows() (not supported on headless servers)
 
     subprocess.run([
         "ffmpeg", "-y", "-i", temp_no_audio, "-i", video_path,
