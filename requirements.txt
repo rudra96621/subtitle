@@ -7,3 +7,4 @@ opencv-python-headless
 srt
 numpy
 pillow
+gunicorn
