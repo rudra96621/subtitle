@@ -14,6 +14,7 @@ from deep_translator import GoogleTranslator
 SUPPORTED_LANGS = GoogleTranslator().get_supported_languages(as_dict=True)
 LANG_DICT = {name.title(): code for name, code in SUPPORTED_LANGS.items()}
 
+
 def get_font_for_text(text):
     if re.search(r'[\u0600-\u06FF]', text):
         return "fonts/NotoSansArabic-Regular.ttf"
@@ -29,6 +30,7 @@ def get_font_for_text(text):
         return "fonts/NotoSansDevanagari-Regular.ttf"
     else:
         return "fonts/NotoSans-Regular.ttf"
+
 
 def export_srt(segments, srt_path):
     subs = []
@@ -49,13 +51,6 @@ def export_srt(segments, srt_path):
 
 
 def render_subtitles_on_video(video_path, segments, output_path, font_path):
-    import cv2
-    import tempfile
-    import subprocess
-    import numpy as np
-    from PIL import ImageFont, ImageDraw, Image
-    import textwrap
-
     cap = cv2.VideoCapture(video_path)
     fps = cap.get(cv2.CAP_PROP_FPS)
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -64,7 +59,6 @@ def render_subtitles_on_video(video_path, segments, output_path, font_path):
     if not cap.isOpened():
         raise Exception(f"Cannot open video file: {video_path}")
 
-    # Use MJPG codec and AVI file extension
     temp_no_audio = tempfile.mktemp(suffix=".avi")
     out = cv2.VideoWriter(temp_no_audio, cv2.VideoWriter_fourcc(*'MJPG'), fps, (width, height))
 
@@ -120,12 +114,11 @@ def render_subtitles_on_video(video_path, segments, output_path, font_path):
     cap.release()
     out.release()
 
-    # Convert .avi to .mp4 using ffmpeg
+    # Convert AVI to MP4 with audio using ffmpeg
     subprocess.run([
         "ffmpeg", "-y", "-i", temp_no_audio, "-i", video_path,
-        "-c:v", "libx264", "-map", "0:v:0", "-map", "1:a:0", output_path
+        "-c:v", "libx264", "-map", "0:v:0", "-map", "1:a:0", "-shortest", output_path
     ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
 
     if os.path.exists(temp_no_audio):
         os.remove(temp_no_audio)
