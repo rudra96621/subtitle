@@ -104,17 +104,23 @@ def main_page():
 
                 segments = transcription['segments']
                 translated_segments = []
+
                 for seg in segments:
                     text = seg['text']
-                    try:
-                        translated_text_segment = GoogleTranslator(source='auto', target=st.session_state.LANG_DICT[target_lang]).translate(text)
-                    except Exception:
-                        translated_text_segment = '[Translation Failed]'
-                    translated_segments.append({
-                        'start': seg['start'],
-                        'end': seg['end'],
-                        'text': translated_text_segment
-                    })
+                    if not text or text.strip() == "":
+                        continue  # Skip empty segments
+
+                try:
+                    translated_text_segment = GoogleTranslator(source='auto', target=st.session_state.LANG_DICT[target_lang]).translate(text)
+                except Exception:
+                    translated_text_segment = '[Translation Failed]'
+
+                translated_segments.append({
+                    'start': seg['start'],
+                    'end': seg['end'],
+                    'text': translated_text_segment if translated_text_segment else '[No Content]'
+    })
+
 
                 srt_path = os.path.join('output', srt_filename)
                 export_srt(translated_segments, srt_path)
