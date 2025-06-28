@@ -25,6 +25,25 @@ if 'SUPPORTED_LANGS' not in st.session_state:
 os.makedirs('output', exist_ok=True)
 
 
+def merge_segments(segments, max_gap=1.0):
+    if not segments:
+        return []
+
+    merged = []
+    current = segments[0].copy()
+
+    for seg in segments[1:]:
+        if seg['start'] - current['end'] <= max_gap:
+            current['end'] = seg['end']
+            current['text'] += ' ' + seg['text']
+        else:
+            merged.append(current)
+            current = seg.copy()
+
+    merged.append(current)
+    return merged
+
+
 def signup():
     st.title("📝 Sign Up")
     username = st.text_input("Create Username")
@@ -93,34 +112,33 @@ def main_page():
                 transcription = model.transcribe(temp_file.name, language=None if spoken_lang == 'Auto' else st.session_state.LANG_DICT[spoken_lang])
                 transcribed_text = transcription['text']
 
-                try:
-                    translated_text = GoogleTranslator(source='auto', target=st.session_state.LANG_DICT[target_lang]).translate(transcribed_text)
-                except Exception:
-                    translated_text = '[Translation Failed]'
-
-                base_name = os.path.splitext(os.path.basename(temp_file.name))[0]
-                srt_filename = f"{base_name}.srt"
-                video_filename = f"{base_name}_subtitled.mp4"
-
                 segments = transcription['segments']
-                translated_segments = []
 
+                translated_segments = []
                 for seg in segments:
                     text = seg['text']
                     if not text or text.strip() == "":
                         continue  # Skip empty segments
+                    try:
+                        translated_text_segment = GoogleTranslator(source='auto', target=st.session_state.LANG_DICT[target_lang]).translate(text)
+                    except Exception:
+                        translated_text_segment = '[Translation Failed]'
+                    translated_segments.append({
+                        'start': seg['start'],
+                        'end': seg['end'],
+                        'text': translated_text_segment if translated_text_segment else '[No Content]'
+                    })
 
-                try:
-                    translated_text_segment = GoogleTranslator(source='auto', target=st.session_state.LANG_DICT[target_lang]).translate(text)
-                except Exception:
-                    translated_text_segment = '[Translation Failed]'
+                # Merge close subtitle segments
+                translated_segments = merge_segments(translated_segments)
 
-                translated_segments.append({
-                    'start': seg['start'],
-                    'end': seg['end'],
-                    'text': translated_text_segment if translated_text_segment else '[No Content]'
-    })
+                if not translated_segments:
+                    st.error("No valid subtitles found after processing.")
+                    return
 
+                base_name = os.path.splitext(os.path.basename(temp_file.name))[0]
+                srt_filename = f"{base_name}.srt"
+                video_filename = f"{base_name}_subtitled.mp4"
 
                 srt_path = os.path.join('output', srt_filename)
                 export_srt(translated_segments, srt_path)
@@ -137,7 +155,7 @@ def main_page():
                     st.download_button("Download Subtitle (.srt)", file, srt_filename)
 
                 with open(video_output_path, "rb") as file:
-                    st.download_button("Download Subtitled Video (.mp4)", file, video_filename)
+                    st.download_button("Download Subtitled Video", file, video_filename)
         else:
             st.error("Please upload a file first.")
 
