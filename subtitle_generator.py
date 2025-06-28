@@ -33,12 +33,20 @@ def get_font_for_text(text):
 def export_srt(segments, srt_path):
     subs = []
     for i, segment in enumerate(segments, start=1):
-        subs.append(srt.Subtitle(index=i,
-                                 start=timedelta(seconds=segment["start"]),
-                                 end=timedelta(seconds=segment["end"]),
-                                 content=segment["text"]))
+        text = segment["text"]
+        if text is None or text.strip() == "":
+            continue  # Skip empty subtitles
+
+        subs.append(srt.Subtitle(
+            index=i,
+            start=timedelta(seconds=segment["start"]),
+            end=timedelta(seconds=segment["end"]),
+            content=text.strip()
+        ))
+
     with open(srt_path, "w", encoding="utf-8") as f:
         f.write(srt.compose(subs))
+
 
 def render_subtitles_on_video(video_path, segments, output_path, font_path):
     cap = cv2.VideoCapture(video_path)
