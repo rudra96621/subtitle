@@ -49,6 +49,13 @@ def export_srt(segments, srt_path):
 
 
 def render_subtitles_on_video(video_path, segments, output_path, font_path):
+    import cv2
+    import tempfile
+    import subprocess
+    import numpy as np
+    from PIL import ImageFont, ImageDraw, Image
+    import textwrap
+
     cap = cv2.VideoCapture(video_path)
     fps = cap.get(cv2.CAP_PROP_FPS)
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -57,73 +64,68 @@ def render_subtitles_on_video(video_path, segments, output_path, font_path):
     if not cap.isOpened():
         raise Exception(f"Cannot open video file: {video_path}")
 
-    temp_no_audio = tempfile.mktemp(suffix=".mp4")
-    out = cv2.VideoWriter(temp_no_audio, cv2.VideoWriter_fourcc(*'avc1'), fps, (width, height))
+    # Use MJPG codec and AVI file extension
+    temp_no_audio = tempfile.mktemp(suffix=".avi")
+    out = cv2.VideoWriter(temp_no_audio, cv2.VideoWriter_fourcc(*'MJPG'), fps, (width, height))
 
     if not out.isOpened():
-        raise Exception("Error initializing VideoWriter. Check codec and file paths.")
+        raise Exception("Error initializing VideoWriter. MJPG codec might not be supported.")
 
-    try:
-        font = ImageFont.truetype(font_path, 32)
-        padding = 30
-        frame_idx = 0
-        segment_index = 0
-        current_sub = ""
+    font = ImageFont.truetype(font_path, 32)
+    padding = 30
+    frame_idx = 0
+    segment_index = 0
+    current_sub = ""
 
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        current_time = frame_idx / fps
+        frame_idx += 1
+
+        while segment_index < len(segments):
+            start = segments[segment_index]["start"]
+            end = segments[segment_index]["end"]
+            if start <= current_time <= end:
+                current_sub = segments[segment_index]["text"]
+                break
+            elif current_time > end:
+                segment_index += 1
+                current_sub = ""
+            else:
                 break
 
-            current_time = frame_idx / fps
-            frame_idx += 1
+        if current_sub:
+            frame_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            draw = ImageDraw.Draw(frame_pil)
 
-            while segment_index < len(segments):
-                start = segments[segment_index]["start"]
-                end = segments[segment_index]["end"]
-                if start <= current_time <= end:
-                    current_sub = segments[segment_index]["text"]
-                    break
-                elif current_time > end:
-                    segment_index += 1
-                    current_sub = ""
-                else:
-                    break
+            lines = textwrap.wrap(current_sub, width=40)
+            y = height - padding - len(lines) * 40
 
-            if current_sub:
-                frame_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-                draw = ImageDraw.Draw(frame_pil)
+            for line in lines:
+                text_size = draw.textbbox((0, 0), line, font=font)
+                text_width = text_size[2] - text_size[0]
+                text_height = text_size[3] - text_size[1]
+                x = (width - text_width) // 2
+                draw.rectangle([x - 10, y - 5, x + text_width + 10, y + text_height + 5], fill=(0, 0, 0))
+                draw.text((x, y), line, font=font, fill=(255, 255, 255))
+                y += text_height + 10
 
-                lines = textwrap.wrap(current_sub, width=40)
-                y = height - padding - len(lines) * 40
+            frame = cv2.cvtColor(np.array(frame_pil), cv2.COLOR_RGB2BGR)
 
-                for line in lines:
-                    text_size = draw.textbbox((0, 0), line, font=font)
-                    text_width = text_size[2] - text_size[0]
-                    text_height = text_size[3] - text_size[1]
-                    x = (width - text_width) // 2
-                    draw.rectangle([x - 10, y - 5, x + text_width + 10, y + text_height + 5], fill=(0, 0, 0))
-                    draw.text((x, y), line, font=font, fill=(255, 255, 255))
-                    y += text_height + 10
-
-                frame = cv2.cvtColor(np.array(frame_pil), cv2.COLOR_RGB2BGR)
-
-            out.write(frame)
-
-    except Exception as e:
-        cap.release()
-        out.release()
-        if os.path.exists(temp_no_audio):
-            os.remove(temp_no_audio)
-        raise e
+        out.write(frame)
 
     cap.release()
     out.release()
 
+    # Convert .avi to .mp4 using ffmpeg
     subprocess.run([
         "ffmpeg", "-y", "-i", temp_no_audio, "-i", video_path,
-        "-c:v", "copy", "-map", "0:v:0", "-map", "1:a:0", output_path
+        "-c:v", "libx264", "-map", "0:v:0", "-map", "1:a:0", output_path
     ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
 
     if os.path.exists(temp_no_audio):
         os.remove(temp_no_audio)
