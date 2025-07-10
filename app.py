@@ -9,10 +9,11 @@ from subtitle_generator import get_font_for_text, export_srt, render_subtitles_o
 # MySQL connection
 def get_connection():
     return mysql.connector.connect(
-        host="localhost",
-        user="root",             # change to your MySQL username
-        password="", # change to your MySQL password
-        database="subtitle_app"
+        host="nozomi.proxy.rlwy.net",
+        user="root",
+        password="zRthZfvIIqsoCLaiHwOYQJbjdPWkcrQh",  # click 'show' in Railway to get this
+        port=58581,
+        database="railway"
     )
 
 # Session initialization
