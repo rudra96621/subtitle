@@ -8,3 +8,5 @@ srt
 numpy
 pillow
 gunicorn
+mysql-connector-python
+
