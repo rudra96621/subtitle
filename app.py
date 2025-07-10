@@ -3,12 +3,19 @@ import whisper
 from deep_translator import GoogleTranslator
 import tempfile
 import os
+import mysql.connector
 from subtitle_generator import get_font_for_text, export_srt, render_subtitles_on_video
 
-# Session state initialization
-if 'users' not in st.session_state:
-    st.session_state.users = {}
+# MySQL connection
+def get_connection():
+    return mysql.connector.connect(
+        host="localhost",
+        user="root",             # change to your MySQL username
+        password="", # change to your MySQL password
+        database="subtitle_app"
+    )
 
+# Session initialization
 if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
 
@@ -16,7 +23,7 @@ if 'username' not in st.session_state:
     st.session_state.username = ""
 
 if 'page' not in st.session_state:
-    st.session_state.page = 'login'
+    st.session_state.page = 'main'
 
 if 'SUPPORTED_LANGS' not in st.session_state:
     SUPPORTED_LANGS = GoogleTranslator().get_supported_languages(as_dict=True)
@@ -31,7 +38,18 @@ if 'srt_file' not in st.session_state:
 if 'video_file' not in st.session_state:
     st.session_state.video_file = None
 
+if 'uploaded_file' not in st.session_state:
+    st.session_state.uploaded_file = None
+
+if 'spoken_lang' not in st.session_state:
+    st.session_state.spoken_lang = 'Auto'
+
+if 'target_lang' not in st.session_state:
+    st.session_state.target_lang = 'English'
+
 os.makedirs('output', exist_ok=True)
+
+# --------------------- Authentication ---------------------
 
 def signup():
     st.markdown("## 📝 Sign Up")
@@ -41,13 +59,21 @@ def signup():
     col1, col2 = st.columns(2)
     with col1:
         if st.button("Sign Up"):
-            if username in st.session_state.users:
-                st.error("⚠️ Username already exists!")
+            if username and password:
+                conn = get_connection()
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM users WHERE username=%s", (username,))
+                if cursor.fetchone():
+                    st.error("⚠️ Username already exists!")
+                else:
+                    cursor.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (username, password))
+                    conn.commit()
+                    st.success("✅ Account created! Please log in.")
+                    st.session_state.page = 'login'
+                    st.rerun()
+                conn.close()
             else:
-                st.session_state.users[username] = password
-                st.success("✅ Account created! Please log in.")
-                st.session_state.page = 'login'
-                st.rerun()
+                st.error("❌ Please fill in all fields.")
 
     with col2:
         if st.button("⬅️ Go to Login"):
@@ -62,13 +88,18 @@ def login():
     col1, col2 = st.columns(2)
     with col1:
         if st.button("Login"):
-            if username in st.session_state.users and st.session_state.users[username] == password:
+            conn = get_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM users WHERE username=%s AND password=%s", (username, password))
+            if cursor.fetchone():
                 st.session_state.authenticated = True
                 st.session_state.username = username
                 st.success("✅ Logged in successfully!")
+                st.session_state.page = 'main'
                 st.rerun()
             else:
                 st.error("❌ Invalid credentials")
+            conn.close()
 
     with col2:
         if st.button("✍️ Go to Sign Up"):
@@ -82,71 +113,62 @@ def logout():
     st.session_state.processing_done = False
     st.session_state.srt_file = None
     st.session_state.video_file = None
+    st.session_state.uploaded_file = None
     st.rerun()
 
-def main_page():
-    st.markdown("## 🎬 Subtitle Generator")
-    st.write(f"👋 Welcome, **{st.session_state.username}**")
+# --------------------- Subtitle Processing ---------------------
 
-    st.markdown("---")
+def process_video():
+    file = st.session_state.uploaded_file
+    spoken_lang = st.session_state.spoken_lang
+    target_lang = st.session_state.target_lang
 
-    with st.sidebar:
-        st.header("🔧 Settings")
-        spoken_lang = st.selectbox("🗣️ Spoken Language", ["Auto"] + list(st.session_state.LANG_DICT.keys()))
-        target_lang = st.selectbox("🌐 Subtitle Language", list(st.session_state.LANG_DICT.keys()))
-        st.button("Logout", on_click=logout)
+    with st.spinner("🔄 Transcribing and translating..."):
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
+        temp_file.write(file.read())
+        temp_file.close()
 
-    st.markdown("### 📤 Upload Video or Audio")
-    file = st.file_uploader("", type=['mp4', 'mp3', 'wav', 'm4a'])
+        model = whisper.load_model('tiny')
+        transcription = model.transcribe(
+            temp_file.name, 
+            language=None if spoken_lang == 'Auto' else st.session_state.LANG_DICT[spoken_lang]
+        )
 
-    st.markdown("### ⚙️ Generate Subtitles")
-    if st.button("▶️ Start Processing"):
-        if file:
-            with st.spinner("🔄 Transcribing and translating..."):
-                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
-                temp_file.write(file.read())
-                temp_file.close()
+        base_name = os.path.splitext(os.path.basename(temp_file.name))[0]
+        srt_filename = f"{base_name}.srt"
+        video_filename = f"{base_name}_subtitled.mp4"
 
-                model = whisper.load_model('tiny')
-                transcription = model.transcribe(temp_file.name, language=None if spoken_lang == 'Auto' else st.session_state.LANG_DICT[spoken_lang])
-                transcribed_text = transcription['text']
+        segments = transcription['segments']
+        translated_segments = []
+        for seg in segments:
+            try:
+                translated_text_segment = GoogleTranslator(
+                    source='auto',
+                    target=st.session_state.LANG_DICT[target_lang]
+                ).translate(seg['text'])
+            except Exception:
+                translated_text_segment = '[Translation Failed]'
+            translated_segments.append({
+                'start': seg['start'],
+                'end': seg['end'],
+                'text': translated_text_segment
+            })
 
-                base_name = os.path.splitext(os.path.basename(temp_file.name))[0]
-                srt_filename = f"{base_name}.srt"
-                video_filename = f"{base_name}_subtitled.mp4"
+        srt_path = os.path.join('output', srt_filename)
+        export_srt(translated_segments, srt_path)
 
-                segments = transcription['segments']
-                translated_segments = []
-                for seg in segments:
-                    try:
-                        translated_text_segment = GoogleTranslator(source='auto', target=st.session_state.LANG_DICT[target_lang]).translate(seg['text'])
-                    except Exception:
-                        translated_text_segment = '[Translation Failed]'
-                    translated_segments.append({
-                        'start': seg['start'],
-                        'end': seg['end'],
-                        'text': translated_text_segment
-                    })
+        sample_text = translated_segments[0]['text'] if translated_segments else ''
+        font_path = get_font_for_text(sample_text)
 
-                srt_path = os.path.join('output', srt_filename)
-                export_srt(translated_segments, srt_path)
+        video_output_path = os.path.join('output', video_filename)
+        render_subtitles_on_video(temp_file.name, translated_segments, video_output_path, font_path)
 
-                sample_text = translated_segments[0]['text'] if translated_segments else ''
-                font_path = get_font_for_text(sample_text)
+        st.session_state.processing_done = True
+        st.session_state.srt_file = srt_path
+        st.session_state.video_file = video_output_path
 
-                video_output_path = os.path.join('output', video_filename)
-                render_subtitles_on_video(temp_file.name, translated_segments, video_output_path, font_path)
+        st.success("✅ Subtitle generation complete!")
 
-                st.session_state.processing_done = True
-                st.session_state.srt_file = srt_path
-                st.session_state.video_file = video_output_path
-
-                st.success("✅ Subtitle generation complete!")
-
-        else:
-            st.warning("⚠️ Please upload a file before starting.")
-
-    if st.session_state.processing_done:
         st.markdown("### 📥 Download Results")
         with open(st.session_state.srt_file, "rb") as file:
             st.download_button("📄 Download Subtitle (.srt)", file, os.path.basename(st.session_state.srt_file), key="srt_download")
@@ -154,12 +176,40 @@ def main_page():
         with open(st.session_state.video_file, "rb") as file:
             st.download_button("🎞️ Download Subtitled Video", file, os.path.basename(st.session_state.video_file), key="video_download")
 
+# --------------------- Main Page ---------------------
+
+def main_page():
+    st.markdown("## 🎬 Subtitle Generator")
+    st.write(f"👋 Welcome, **{st.session_state.username}**")
+    st.markdown("---")
+
+    with st.sidebar:
+        st.header("🔧 Settings")
+        st.session_state.spoken_lang = st.selectbox("🗣️ Spoken Language", ["Auto"] + list(st.session_state.LANG_DICT.keys()))
+        st.session_state.target_lang = st.selectbox("🌐 Subtitle Language", list(st.session_state.LANG_DICT.keys()))
+        st.button("Logout", on_click=logout)
+
+    st.markdown("### 📤 Upload Video or Audio")
+    st.session_state.uploaded_file = st.file_uploader("", type=['mp4', 'mp3', 'wav', 'm4a'])
+
+    st.markdown("### ⚙️ Generate Subtitles")
+    if st.button("▶️ Start Processing"):
+        if not st.session_state.authenticated:
+            st.warning("🔒 Please login to continue.")
+            st.session_state.page = 'login'
+            st.rerun()
+        elif not st.session_state.uploaded_file:
+            st.warning("⚠️ Please upload a file before starting.")
+        else:
+            process_video()
+
+# --------------------- Router ---------------------
+
 def main():
-    if not st.session_state.authenticated:
-        if st.session_state.page == 'login':
-            login()
-        elif st.session_state.page == 'signup':
-            signup()
+    if st.session_state.page == 'login':
+        login()
+    elif st.session_state.page == 'signup':
+        signup()
     else:
         main_page()
 
