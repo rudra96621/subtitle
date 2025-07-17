@@ -6,7 +6,7 @@ import tempfile
 import mysql.connector
 from deep_translator import GoogleTranslator
 from subtitle_generator import get_font_for_text, export_srt, render_subtitles_on_video
-from drive_uploader import upload_output_folder
+
 
 # 🔒 MySQL Setup
 def get_connection():
