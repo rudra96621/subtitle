@@ -274,15 +274,18 @@ def main_page():
             if st.button("🚪 Logout") and not st.session_state.is_processing:
                 logout()
 
-        st.markdown("## 📂 Recent Downloads")
+        
+        st.markdown("## 📥 Recent Downloads")
+    
         if st.session_state.history:
-            for idx, item in enumerate(st.session_state.history):
-                st.markdown(f"**🎮 {item['video_name']}**")
-                st.download_button("📄 Subtitle", item['srt_data'], file_name=item['srt_name'], key=f"srt_{idx}")
-                st.download_button("🎮 Video", item['video_data'], file_name=item['video_name'], key=f"vid_{idx}")
+            exp = st.expander("⬇️ View Recent Files")
+            with exp:
+                for idx, item in enumerate(st.session_state.history):
+                    st.markdown(f"**🎮 {item['video_name']}**", unsafe_allow_html=True)
+                    st.download_button("📄 Subtitle", item['srt_data'], file_name=item['srt_name'], key=f"srt_{idx}")
+                    st.download_button("🎮 Video", item['video_data'], file_name=item['video_name'], key=f"vid_{idx}")
         else:
             st.info("No recent files yet.")
-
         with st.expander("❓ How to Use"):
             st.markdown("""
 1. Upload a video/audio  
@@ -292,6 +295,18 @@ def main_page():
 5. Click ▶️ Start  
 6. Download results
             """)
+            
+    
+        st.markdown("### 👤 Account")
+
+        if not st.session_state.authenticated:
+            if st.button("🔐 Login"):
+                st.session_state.page = "login"
+            if st.button("📝 Signup"):
+                st.session_state.page = "signup"
+        else:
+            st.markdown(f"✅ Logged in as `{st.session_state.username}`")
+
 
     # Upload & language
     st.markdown("### 📤 Upload Audio/Video")
