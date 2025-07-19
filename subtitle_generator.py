@@ -2,9 +2,9 @@ import os                      # For interacting with the operating system (file
 import tempfile                # To create temporary files and directories safely
 import subprocess              # To run external commands (e.g., ffmpeg) as subprocesses
 import threading               # For running tasks concurrently in threads (background processing)
-import tkinter as tk           # Core Tkinter GUI module
-from tkinter import filedialog, messagebox  # File dialogs and popup message boxes in Tkinter
-from tkinter import ttk        # Themed Tkinter widgets (better styled widgets)
+#import tkinter as tk           # Core Tkinter GUI module
+#from tkinter import filedialog, messagebox  # File dialogs and popup message boxes in Tkinter
+#from tkinter import ttk        # Themed Tkinter widgets (better styled widgets)
 import whisper                 # OpenAI Whisper speech-to-text model for transcription
 import srt                     # For handling subtitle (.srt) files (parsing and generation)
 from datetime import timedelta # For handling time durations, useful for subtitle timestamps
