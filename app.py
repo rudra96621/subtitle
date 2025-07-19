@@ -3,43 +3,26 @@ import streamlit as st
 import whisper
 import os
 import tempfile
-import mysql.connector
 from deep_translator import GoogleTranslator
 from subtitle_generator import get_font_for_text, export_srt, render_subtitles_on_video
+from pymongo import MongoClient
+import bcrypt
+from urllib.parse import quote_plus
 
-
-# 🔒 MySQL Setup
+# MongoDB Connection
 def get_connection():
-    return mysql.connector.connect(
-        host="nozomi.proxy.rlwy.net",
-        user="root",
-        password="zRthZfvIIqsoCLaiHwOYQJbjdPWkcrQh",
-        port=58581,
-        database="railway"
-    )
+    username = "rudra"
+    password = quote_plus("Rudra@123")
+    uri = f"mongodb+srv://{username}:{password}@cluster0.ucw0onm.mongodb.net/subtitleApp?retryWrites=true&w=majority&appName=Cluster0"
+    client = MongoClient(uri)
+    db = client["subtitleApp"]
+    return db
 
+# Initialize Collections
 def create_tables():
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-            username TEXT NOT NULL,
-            password TEXT NOT NULL
-        )
-    """)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS subtitle_history (
-            id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-            username TEXT NOT NULL,
-            original_language TEXT,
-            translated_language TEXT,
-            filename TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    conn.commit()
-    conn.close()
+    db = get_connection()
+    if "users" not in db.list_collection_names():
+        db.create_collection("users")
 
 # 🌐 Session Initialization
 for key, value in {
@@ -68,7 +51,6 @@ if 'SUPPORTED_LANGS' not in st.session_state:
 
 os.makedirs('output', exist_ok=True)
 
-# Whisper Model Loader
 @st.cache_resource(show_spinner="🔄 Loading Whisper model...")
 def load_whisper_model(model_size="tiny", device="cpu"):
     os.environ["WHISPER_CACHE_DIR"] = os.path.expanduser("~/.cache/whisper")
@@ -84,52 +66,46 @@ def get_or_load_model():
             )
     return st.session_state.model_loaded[key]
 
-
-# Auth Functions
 def signup():
     st.title("📝 Sign Up")
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
+
     if st.button("Sign Up"):
         if username and password:
-            conn = get_connection()
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM users WHERE username=%s", (username,))
-            if cursor.fetchone():
+            db = get_connection()
+            users = db["users"]
+
+            if users.find_one({"username": username}):
                 st.error("Username already exists.")
             else:
-                cursor.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (username, password))
-                conn.commit()
+                hashed_pw = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
+                users.insert_one({"username": username, "password": hashed_pw, "history": []})
                 st.success("Account created! Please log in.")
                 st.session_state.page = "login"
                 st.rerun()
-            conn.close()
 
 def login():
     st.title("🔐 Login")
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
+
     if st.button("Login"):
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users WHERE username=%s AND password=%s", (username, password))
-        if cursor.fetchone():
+        db = get_connection()
+        users = db["users"]
+
+        user = users.find_one({"username": username})
+        if user and bcrypt.checkpw(password.encode("utf-8"), user["password"]):
             st.session_state.authenticated = True
             st.session_state.username = username
             st.session_state.page = "main"
 
-            # 🕽️ Load last 3 history items from DB
-            cursor.execute("""
-                SELECT filename FROM subtitle_history
-                WHERE username=%s
-                ORDER BY timestamp DESC
-                LIMIT 3
-            """, (username,))
-            results = cursor.fetchall()
             st.session_state.history = []
-            for row in results:
-                video_file_path = f"output/{row[0]}"
-                srt_file_path = video_file_path.replace("_subtitled.mp4", ".srt")
+            history_items = user.get("history", [])[-3:][::-1]
+
+            for entry in history_items:
+                video_file_path = entry.get("video_path")
+                srt_file_path = entry.get("srt_path")
                 try:
                     with open(video_file_path, "rb") as vid, open(srt_file_path, "rb") as srt:
                         st.session_state.history.append({
@@ -145,14 +121,12 @@ def login():
             st.rerun()
         else:
             st.error("Invalid credentials")
-        conn.close()
 
     st.markdown("---")
     st.markdown("Don't have an account?")
     if st.button("Sign Up"):
         st.session_state.page = "signup"
         st.rerun()
-
 
 def logout():
     st.session_state.clear()
@@ -167,11 +141,10 @@ def profile_page():
     col1, col2 = st.columns([1, 1])
     with col1:
         if st.button("📏 Update"):
-            conn = get_connection()
-            cursor = conn.cursor()
-            cursor.execute("UPDATE users SET username=%s, password=%s WHERE username=%s", (new_username, new_password, st.session_state.username))
-            conn.commit()
-            conn.close()
+            db = get_connection()
+            users = db["users"]
+            hashed_pw = bcrypt.hashpw(new_password.encode("utf-8"), bcrypt.gensalt())
+            users.update_one({"username": st.session_state.username}, {"$set": {"username": new_username, "password": hashed_pw}})
             st.session_state.username = new_username
             st.success("Profile updated!")
 
@@ -180,7 +153,6 @@ def profile_page():
             st.session_state.page = "main"
             st.rerun()
 
-# ETA Calculation
 def estimate_total_time(duration_sec, model_size="medium"):
     speed = {"tiny": 1.0, "base": 1.5, "small": 2.0, "medium": 3.5, "large": 5.0}
     return int(duration_sec * speed.get(model_size, 2))
@@ -188,51 +160,37 @@ def estimate_total_time(duration_sec, model_size="medium"):
 def format_eta(seconds):
     return f"{seconds // 60}m {seconds % 60}s" if seconds >= 60 else f"{seconds}s"
 
-# 🧠 Subtitle Generator
 def save_subtitle_history(username, original_language, translated_language, filename):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        INSERT INTO subtitle_history (username, original_language, translated_language, filename)
-        VALUES (%s, %s, %s, %s)
-    """, (username, original_language, translated_language, filename))
-    conn.commit()
+    db = get_connection()
+    users = db["users"]
 
-    # Keep only 3 most recent, delete older from DB and disk
-    cursor.execute("""
-        SELECT filename FROM subtitle_history
-        WHERE username = %s
-        ORDER BY timestamp DESC
-        LIMIT 3
-    """, (username,))
-    latest_files = [row[0] for row in cursor.fetchall()]
+    video_path = os.path.join("output", filename)
+    srt_path = video_path.replace("_subtitled.mp4", ".srt")
 
-    if len(latest_files) == 3:
-        cursor.execute(f"""
-            SELECT filename FROM subtitle_history
-            WHERE username = %s AND filename NOT IN (%s, %s, %s)
-        """, (username, *latest_files))
-        files_to_delete = [row[0] for row in cursor.fetchall()]
+    new_entry = {
+        "video_path": video_path,
+        "srt_path": srt_path,
+        "original_language": original_language,
+        "translated_language": translated_language
+    }
 
-        if files_to_delete:
-            cursor.executemany("""
-                DELETE FROM subtitle_history
-                WHERE username = %s AND filename = %s
-            """, [(username, f) for f in files_to_delete])
-            conn.commit()
+    user = users.find_one({"username": username})
+    history = user.get("history", [])
 
-            for f in files_to_delete:
-                video_path = os.path.join("output", f)
-                srt_path = video_path.replace("_subtitled.mp4", ".srt")
-                try:
-                    if os.path.exists(video_path):
-                        os.remove(video_path)
-                    if os.path.exists(srt_path):
-                        os.remove(srt_path)
-                except Exception as e:
-                    print(f"Error deleting files: {e}")
+    history.append(new_entry)
+    if len(history) > 3:
+        to_delete = history[:-3]
+        for entry in to_delete:
+            try:
+                if os.path.exists(entry["video_path"]):
+                    os.remove(entry["video_path"])
+                if os.path.exists(entry["srt_path"]):
+                    os.remove(entry["srt_path"])
+            except Exception as e:
+                print(f"Error deleting files: {e}")
+        history = history[-3:]
 
-    conn.close()
+    users.update_one({"username": username}, {"$set": {"history": history}})
 
 def process_video():
     st.session_state.is_processing = True
