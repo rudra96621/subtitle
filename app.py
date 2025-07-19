@@ -10,17 +10,11 @@ import bcrypt
 from urllib.parse import quote_plus
 
 # MongoDB Connection
-def get_database():
+def get_connection():
     username = "rudra"
-    password = quote_plus("Rudra@123")  # URL-safe
-    uri = f"mongodb+srv://{username}:{password}@cluster0.ucw0onm.mongodb.net/subtitleApp?retryWrites=true&w=majority"
-
-    # Force TLS with cert requirements (recommended for Render)
-    client = MongoClient(
-        uri,
-        ssl=True,
-        ssl_cert_reqs=ssl.CERT_NONE  # Relax certificate checks
-    )
+    password = quote_plus("Rudra@123")  # Ensures special characters are URL-safe
+    uri = f"mongodb+srv://{username}:{password}@cluster0.ucw0onm.mongodb.net/subtitleApp?retryWrites=true&w=majority&appName=Cluster0"
+    client = MongoClient(uri, tls=True, tlsAllowInvalidCertificates=True)  # Enables TLS connection for MongoDB Atlas
     db = client["subtitleApp"]
     return db
 
