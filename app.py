@@ -8,13 +8,15 @@ from subtitle_generator import get_font_for_text, export_srt, render_subtitles_o
 from pymongo import MongoClient
 import bcrypt
 from urllib.parse import quote_plus
+import certifi
+
 
 # MongoDB Connection
 def get_connection():
     username = "rudra"
-    password = quote_plus("Rudra@123")  # Ensures special characters are URL-safe
-    uri = f"mongodb+srv://{username}:{password}@cluster0.ucw0onm.mongodb.net/subtitleApp?retryWrites=true&w=majority&appName=Cluster0"
-    client = MongoClient(uri, tls=True, tlsAllowInvalidCertificates=True)  # Enables TLS connection for MongoDB Atlas
+    password = quote_plus("Rudra@123")
+    uri = f"mongodb+srv://{username}:{password}@cluster0.ucw0onm.mongodb.net/subtitleApp?retryWrites=true&w=majority"
+    client = MongoClient(uri, tls=True, serverSelectionTimeoutMS=5000)
     db = client["subtitleApp"]
     return db
 
