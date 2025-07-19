@@ -8,7 +8,7 @@ srt
 numpy
 pillow
 gunicorn
-pymongo
-dnspython
-bcrypt
+pymongo[srv]==4.6.3
+dnspython==2.4.2
 certifi
+bcrypt
