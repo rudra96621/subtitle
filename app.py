@@ -13,8 +13,15 @@ from urllib.parse import quote_plus
 def get_connection():
     username = "rudra"
     password = quote_plus("Rudra@123")
-    uri = f"mongodb+srv://{username}:{password}@cluster0.ucw0onm.mongodb.net/subtitleApp?retryWrites=true&w=majority&appName=Cluster0"
-    client = MongoClient(uri)
+    uri = f"mongodb+srv://{username}:{password}@cluster0.ucw0onm.mongodb.net/"
+    
+    client = MongoClient(
+        uri,
+        tls=True,
+        tlsAllowInvalidCertificates=False,  # Set to True only for testing
+        serverSelectionTimeoutMS=20000
+    )
+    
     db = client["subtitleApp"]
     return db
 
