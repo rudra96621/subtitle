@@ -11,3 +11,4 @@ gunicorn
 pymongo
 dnspython
 bcrypt
+certifi
