@@ -10,3 +10,4 @@ pillow
 gunicorn
 pymongo
 dnspython
+bcrypt
