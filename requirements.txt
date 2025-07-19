@@ -3,7 +3,7 @@ torch==2.7.1
 -f https://download.pytorch.org/whl/torch_stable.html
 openai-whisper
 deep-translator
-opencv-python-headless
+opencv-python
 srt
 numpy
 pillow
